@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Oráculo de Tarot</title>
+    <!-- Inclui o Tailwind CSS para estilização -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Link para a fonte Inter do Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <style>
+        /* Estilos básicos para garantir que a fonte Inter seja usada */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Estilos para os contêineres das cartas */
+        .card-container {
+            perspective: 1000px;
+        }
+        .card {
+            transition: none; /* Removendo todas as transições para evitar animações */
+            transform-style: preserve-3d;
+        }
+        .card:hover {
+            transform: none; /* Remove o efeito de hover */
+        }
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: none; /* Removendo transições */
+            transform-style: preserve-3d;
+        }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden; /* Safari */
+            backface-visibility: hidden;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column; /* Para empilhar número e nome */
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            padding: 0.5rem; /* Padding menor */
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3); /* Sombra mais sutil */
+            text-align: center; /* Centraliza o texto */
+        }
+        .card-front {
+            background: linear-gradient(135deg, #6b46c1, #805ad5);
+        }
+        .card-back {
+            background: linear-gradient(135deg, #4c3d8e, #6a5acd);
+            transform: rotateY(180deg);
+        }
+        /* Estilos para o spinner de carregamento */
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Este é o elemento raiz onde o seu aplicativo React será montado -->
+    <div id="root"></div>
+
+    <!-- Inclui as bibliotecas React e ReactDOM do CDN -->
+    <!-- É importante que estas sejam carregadas antes do seu script React -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+        // Componente principal do aplicativo de Tarot
+        function App() {
+            // Estado para armazenar a mensagem da inteligência artificial
+            const [aiMessage, setAiMessage] = React.useState('');
+            // Estado para controlar o carregamento da resposta da IA
+            const [isLoading, setIsLoading] = React.useState(false);
+            // Estado para armazenar mensagens de erro
+            const [error, setError] = React.useState('');
+            // Estado para armazenar as cartas que serão exibidas, com suas posições
+            const [displayedCards, setDisplayedCards] = React.useState([]);
+            // Estado para armazenar o tipo de tiragem atual
+            const [currentSpreadType, setCurrentSpreadType] = React.useState('');
+
+            // Definição das cartas de Tarot
+            // Inclui Arcanos Maiores e uma seleção de Arcanos Menores para o "Baralho Completo"
+            const tarotCards = [
+                // Arcanos Maiores (22)
+                { id: 0, name: 'O Louco', type: 'major', description: 'Início de uma jornada, espontaneidade, fé, inocência e potencial ilimitado.' },
+                { id: 1, name: 'O Mago', type: 'major', description: 'Poder, habilidade, concentração e manifestação.' },
+                { id: 2, name: 'A Sacerdotisa', type: 'major', description: 'Intuição, mistério, subconsciente e sabedoria oculta.' },
+                { id: 3, name: 'A Imperatriz', type: 'major', description: 'Fertilidade, abundância, criatividade e conexão com a natureza.' },
+                { id: 4, name: 'O Imperador', type: 'major', description: 'Autoridade, estrutura, controle.' },
+                { id: 5, name: 'O Hierofante', type: 'major', description: 'Tradição, instituições, educação e crenças.' },
+                { id: 6, name: 'Os Enamorados', type: 'major', description: 'Escolhas, união, relacionamentos e harmonia.' },
+                { id: 7, name: 'O Carro', type: 'major', description: 'Vitória, determinação, autocontrole e avanço.' },
+                { id: 8, name: 'A Força', type: 'major', description: 'Coragem, paciência, compaixão e domínio interior.' },
+                { id: 9, name: 'O Eremita', type: 'major', description: 'Introspecção, sabedoria e busca interior.' },
+                { id: 10, name: 'A Roda da Fortuna', type: 'major', description: 'Mudanças, ciclos, destino e pontos de virada.' },
+                { id: 11, name: 'A Justiça', type: 'major', description: 'Equilíbrio, verdade, clareza e causa e efeito.' },
+                { id: 12, name: 'O Enforcado', type: 'major', description: 'Sacrifício, nova perspectiva e rendição.' },
+                { id: 13, name: 'A Morte', type: 'major', description: 'Fim de um ciclo, transformação e renovação.' },
+                { id: 14, name: 'A Temperança', type: 'major', description: 'Equilíbrio, moderação, paciência e harmonia.' },
+                { id: 15, name: 'O Diabo', type: 'major', description: 'Apego, materialismo, vícios e ilusão.' },
+                { id: 16, name: 'A Torre', type: 'major', description: 'Mudança súbita, revelação e quebra de estruturas.' },
+                { id: 17, name: 'A Estrela', type: 'major', description: 'Esperança, inspiração, cura e renovação.' },
+                { id: 18, name: 'A Lua', type: 'major', description: 'Ilusão, medo, intuição e inconsciente.' },
+                { id: 19, name: 'O Sol', type: 'major', description: 'Alegria, sucesso, vitalidade e clareza.' },
+                { id: 20, name: 'O Julgamento', type: 'major', description: 'Renascimento, despertar e chamado.' },
+                { id: 21, name: 'O Mundo', type: 'major', description: 'Conclusão, realização, integração e plenitude.' },
+                // Arcanos Menores (exemplo simplificado para demonstração do "baralho completo")
+                { id: 22, name: 'Ás de Paus', type: 'minor', description: 'Inspiração, novos começos, potencial criativo.' },
+                { id: 23, name: 'Cinco de Paus', type: 'minor', description: 'Conflito, competição, desacordo.' },
+                { id: 24, name: 'Rei de Paus', type: 'minor', description: 'Liderança, visão, carisma, empreendedorismo.' },
+                { id: 25, name: 'Ás de Copas', type: 'minor', description: 'Novas emoções, intuição, amor, compaixão.' },
+                { id: 26, name: 'Cinco de Copas', type: 'minor', description: 'Perda, luto, desilusão, arrependimento.' },
+                { id: 27, name: 'Rei de Copas', type: 'minor', description: 'Maturidade emocional, compaixão, diplomacia.' },
+                { id: 28, name: 'Ás de Espadas', type: 'minor', description: 'Novas ideias, clareza mental, verdade, justiça.' },
+                { id: 29, name: 'Cinco de Espadas', type: 'minor', description: 'Derrota, rendição, desonra, conflito interno.' },
+                { id: 30, name: 'Rei de Espadas', type: 'minor', description: 'Intelecto, autoridade, verdade, julgamento justo.' },
+                { id: 31, name: 'Ás de Ouros', type: 'minor', description: 'Novas oportunidades financeiras, segurança, manifestação.' },
+                { id: 32, name: 'Cinco de Ouros', type: 'minor', description: 'Pobreza, isolamento, preocupação material.' },
+                { id: 33, name: 'Rei de Ouros', type: 'minor', description: 'Prosperidade, segurança, praticidade, sucesso material.' },
+            ];
+
+            // Definições das tiragens
+            const spreads = {
+                celticCross: {
+                    name: "Cruz Celta",
+                    cardCount: 10,
+                    deckType: 'major', // Apenas Arcanos Maiores
+                    positions: [
+                        { label: '1. O Presente' },
+                        { label: '2. O Obstáculo' },
+                        { label: '3. As Raízes' },
+                        { label: '4. O Passado' },
+                        { label: '5. O Futuro' },
+                        { label: '6. A Coroa' },
+                        { label: '7. O Consulente' },
+                        { label: '8. Influências Externas' },
+                        { label: '9. Esperanças e Medos' },
+                        { label: '10. O Resultado Final' },
+                    ]
+                },
+                fullDeck3Card: {
+                    name: "Baralho Completo (3 Cartas)",
+                    cardCount: 3,
+                    deckType: 'full', // Arcanos Maiores e Menores
+                    positions: [
+                        { label: '1. Passado' },
+                        { label: '2. Presente' },
+                        { label: '3. Futuro' },
+                    ]
+                }
+            };
+
+            // Função para embaralhar as cartas usando o algoritmo Fisher-Yates
+            const shuffleArray = (array) => {
+                const newArray = [...array]; // Cria uma cópia para não modificar o array original
+                for (let i = newArray.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [newArray[i], newArray[j]] = [newArray[j], newArray[i]]; // Troca elementos
+                }
+                return newArray;
+            };
+
+            // Função para sortear cartas com base no tipo de baralho
+            const drawCards = (deckType, count) => {
+                let deckToDrawFrom = [];
+                if (deckType === 'major') {
+                    deckToDrawFrom = tarotCards.filter(card => card.type === 'major');
+                } else { // 'full' deck
+                    deckToDrawFrom = tarotCards;
+                }
+                const shuffled = shuffleArray(deckToDrawFrom);
+                return shuffled.slice(0, count);
+            };
+
+            // Função assíncrona para consultar a API do Gemini
+            const consultOracle = async (spreadConfig) => {
+                setIsLoading(true); // Ativa o estado de carregamento
+                setAiMessage('');    // Limpa a mensagem anterior
+                setError('');        // Limpa qualquer erro anterior
+                setCurrentSpreadType(spreadConfig.name); // Define o tipo de tiragem atual
+
+                const selectedCards = drawCards(spreadConfig.deckType, spreadConfig.cardCount);
+
+                // Mapeia as cartas sorteadas para suas posições na tiragem
+                const cardsWithPositions = selectedCards.map((card, index) => ({
+                    ...card,
+                    positionLabel: spreadConfig.positions[index].label
+                }));
+                setDisplayedCards(cardsWithPositions); // Atualiza o estado das cartas exibidas
+
+                // Cria o prompt para a IA, incluindo os detalhes da tiragem e as posições
+                const cardDetailsForPrompt = cardsWithPositions.map(card =>
+                    `${card.positionLabel}: ${card.name} (ID ${card.id}) - ${card.description}`
+                ).join('\n');
+
+                // *** ALTERAÇÃO AQUI: REMOÇÃO DA PERSONALIZAÇÃO E ADIÇÃO DO ESTILO NARRATIVO ***
+                const prompt = `Interprete a seguinte tiragem de Tarot ${spreadConfig.name}. Explique de forma menos técnica e mais como uma história, com leveza, poesia e lógica. As cartas e suas posições são:\n\n${cardDetailsForPrompt}\n\nOfereça uma reflexão ou conselho que conecte os significados das cartas e suas posições na tiragem, de forma integrada e inspiradora.`;
+
+                // Configuração do payload para a chamada da API
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseMimeType: "text/plain", // Esperamos uma resposta de texto simples
+                    }
+                };
+
+                // A chave da API é fornecida automaticamente pelo ambiente Canvas
+                const apiKey = "";
+                // URL da API do Gemini para geração de conteúdo
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                // Tenta fazer a chamada da API com tratamento de erros e retentativas
+                let retries = 0;
+                const maxRetries = 3;
+                const baseDelay = 1000; // 1 segundo
+
+                while (retries < maxRetries) {
+                    try {
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+
+                        // Verifica se a resposta da rede foi bem-sucedida
+                        if (!response.ok) {
+                            throw new Error(`Erro HTTP: ${response.status}`);
+                        }
+
+                        const result = await response.json();
+
+                        // Verifica se a resposta da IA contém o texto esperado
+                        if (result.candidates && result.candidates.length > 0 &&
+                            result.candidates[0].content && result.candidates[0].content.parts &&
+                            result.candidates[0].content.parts.length > 0) {
+                            setAiMessage(result.candidates[0].content.parts[0].text);
+                            break; // Sai do loop se a chamada for bem-sucedida
+                        } else {
+                            throw new Error('Resposta da API inesperada ou vazia.');
+                        }
+                    } catch (err) {
+                        console.error('Erro ao consultar o oráculo:', err);
+                        setError(`Houve um erro ao contatar o oráculo: ${err.message}. Tentando novamente...`);
+                        retries++;
+                        if (retries < maxRetries) {
+                            await new Promise(res => setTimeout(res, baseDelay * Math.pow(2, retries - 1))); // Atraso exponencial
+                        } else {
+                            setError('Não foi possível contatar o oráculo após várias tentativas. Por favor, verifique sua conexão e tente novamente.');
+                        }
+                    } finally {
+                        setIsLoading(false); // Desativa o carregamento ao final da tentativa
+                    }
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-purple-800 to-indigo-900 text-white flex flex-col items-center justify-start pt-8 pb-4">
+                    <h1 className="text-3xl md:text-4xl font-bold mb-2 text-center drop-shadow-lg">
+                        Seu Oráculo de Tarot
+                    </h1>
+                    <p className="text-lg md:text-xl text-purple-200 mb-6 text-center">Escolha sua tiragem:</p>
+
+                    {/* Botões para as tiragens */}
+                    <div className="flex flex-wrap justify-center gap-4 mb-8">
+                        <button
+                            onClick={() => consultOracle(spreads.celticCross)}
+                            disabled={isLoading}
+                            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-full shadow-lg transform transition-all duration-300 ease-in-out
+                                       hover:scale-105 hover:shadow-2xl focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-75
+                                       disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base md:text-lg"
+                        >
+                            {isLoading && currentSpreadType === spreads.celticCross.name && <div className="loading-spinner w-4 h-4 border-white border-t-transparent animate-spin"></div>}
+                            {isLoading && currentSpreadType === spreads.celticCross.name ? 'Consultando...' : 'Cruz Celta (Arcanos Maiores)'}
+                        </button>
+                        <button
+                            onClick={() => consultOracle(spreads.fullDeck3Card)}
+                            disabled={isLoading}
+                            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-full shadow-lg transform transition-all duration-300 ease-in-out
+                                       hover:scale-105 hover:shadow-2xl focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-75
+                                       disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base md:text-lg"
+                        >
+                            {isLoading && currentSpreadType === spreads.fullDeck3Card.name && <div className="loading-spinner w-4 h-4 border-white border-t-transparent animate-spin"></div>}
+                            {isLoading && currentSpreadType === spreads.fullDeck3Card.name ? 'Consultando...' : 'Baralho Completo (3 Cartas)'}
+                        </button>
+                    </div>
+
+                    {/* Título da tiragem atual */}
+                    {displayedCards.length > 0 && (
+                        <h2 className="text-2xl md:text-3xl font-bold mb-6 text-center text-purple-300 drop-shadow-lg">
+                            Tiragem: {currentSpreadType}
+                        </h2>
+                    )}
+
+                    {/* Seção das cartas de Tarot - Agora apenas texto com posições */}
+                    <div className={`grid ${displayedCards.length === 10 ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-3'} gap-4 mb-8 w-full max-w-4xl px-4`}>
+                        {displayedCards.map((card, index) => (
+                            <div key={index} className="card-container w-full h-auto rounded-xl shadow-xl flex flex-col items-center">
+                                <p className="text-purple-200 text-sm md:text-base font-semibold mb-1 text-center">{card.positionLabel}</p>
+                                <div className="card w-28 h-40 md:w-32 md:h-48 rounded-xl shadow-xl">
+                                    <div className="card-front">
+                                        <p className="text-lg font-bold leading-tight mb-1">{card.id}.</p>
+                                        <p className="text-sm md:text-base font-bold leading-tight">{card.name}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Retângulo para a mensagem da IA */}
+                    <div className="mt-8 w-full max-w-3xl bg-white bg-opacity-10 backdrop-filter backdrop-blur-sm rounded-2xl p-6 shadow-2xl border border-purple-500">
+                        <h2 className="text-xl font-semibold mb-3 text-purple-200">A Mensagem das Cartas</h2>
+                        {isLoading && (
+                            <div className="flex items-center justify-center text-base text-purple-300">
+                                <div className="loading-spinner mr-2 w-3 h-3"></div>
+                                O oráculo está meditando...
+                            </div>
+                        )}
+                        {error && (
+                            <p className="text-base text-red-300 text-center font-medium">
+                                {error}
+                            </p>
+                        )}
+                        {!isLoading && !error && aiMessage && (
+                            <p className="text-base leading-relaxed text-purple-100 whitespace-pre-wrap">
+                                {aiMessage}
+                            </p>
+                        )}
+                        {!isLoading && !error && !aiMessage && (
+                            <p className="text-base leading-relaxed text-purple-300 italic text-center">
+                                Escolha uma tiragem para receber a mensagem das cartas.
+                            </p>
+                        )}
+                    </div>
+
+                    <footer className="mt-12 text-xs text-purple-300 text-center">
+                        <p>Criado com leveza, poesia e lógica.</p>
+                    </footer>
+                </div>
+            );
+        }
+
+        // Este script é responsável por renderizar o seu componente React na página
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
